@@ -135,6 +135,9 @@
                 jsonData = event.target.result;
                 processJson(jsonData);
             };
+            reader.onerror = function() {
+                alert('Error reading file.');
+            };
             reader.readAsText(file);
             updateProgress(50, 'Reading file...');
         } else if (urlInput) {
@@ -157,7 +160,35 @@
         }
 
         function processJson(jsonData) {
-            const worker = new Worker('worker.js');
+            if (!jsonData) {
+                alert('No JSON data to process.');
+                return;
+            }
+
+            // Create Web Worker Blob URL
+            const workerScript = `
+                self.onmessage = function(e) {
+                    const { jsonData } = e.data;
+                    self.postMessage({ progress: 10, message: 'Starting conversion...' });
+
+                    try {
+                        const jsonObject = JSON.parse(jsonData);
+                        const worksheet = XLSX.utils.json_to_sheet(jsonObject);
+                        const workbook = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+                        // Generate Excel file and send it back to the main thread
+                        const excelBlob = XLSX.write(workbook, { bookType: 'xlsx', type: 'blob' });
+                        self.postMessage({ blob: excelBlob });
+                    } catch (error) {
+                        self.postMessage({ progress: 0, message: 'Error processing JSON: ' + error.message });
+                    }
+                };
+            `;
+
+            const blob = new Blob([workerScript], { type: 'application/javascript' });
+            const worker = new Worker(URL.createObjectURL(blob));
+
             worker.postMessage({ jsonData });
 
             worker.onmessage = function(e) {
@@ -172,7 +203,7 @@
             };
 
             worker.onerror = function(error) {
-                alert('Error processing JSON: ' + error.message);
+                alert('Error in Web Worker: ' + error.message);
             };
         }
 
@@ -182,24 +213,6 @@
         }
     });
 </script>
-<script> self.onmessage = function(e) {
-    const { jsonData } = e.data;
-    self.postMessage({ progress: 10, message: 'Starting conversion...' });
-
-    try {
-        const jsonObject = JSON.parse(jsonData);
-        const worksheet = XLSX.utils.json_to_sheet(jsonObject);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
-
-        // Generate Excel file and send it back to the main thread
-        const excelBlob = XLSX.write(workbook, { bookType: 'xlsx', type: 'blob' });
-        self.postMessage({ blob: excelBlob });
-    } catch (error) {
-        self.postMessage({ progress: 0, message: 'Error processing JSON: ' + error.message });
-    }
-};
- </script>
 
 </body>
 </html>
