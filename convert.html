@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON to Excel Converter</title>
+    <!-- SheetJS library -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- Ant Design for styling -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/antd/5.2.3/antd.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+        }
+        input[type="file"],
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #0070f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #005bb5;
+        }
+        .progress-container {
+            margin-top: 20px;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #ddd;
+            border-radius: 4px;
+            height: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar span {
+            display: block;
+            height: 100%;
+            background-color: #0070f3;
+            width: 0;
+            transition: width 0.4s ease;
+        }
+        .progress-text {
+            position: absolute;
+            width: 100%;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+        }
+        #downloadBtn {
+            display: none;
+            margin-top: 20px;
+            background: #28a745;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>JSON to Excel Converter</h1>
+
+    <div class="input-group">
+        <label for="jsonFile">Upload JSON File:</label>
+        <input type="file" id="jsonFile" accept=".json">
+    </div>
+
+    <div class="input-group">
+        <label for="jsonUrl">Or Enter JSON URL:</label>
+        <input type="text" id="jsonUrl" placeholder="https://example.com/data.json">
+    </div>
+
+    <button id="convertBtn">Convert to Excel</button>
+
+    <div class="progress-container">
+        <div class="progress-bar">
+            <span id="progressBar"></span>
+            <div class="progress-text" id="progressText">0%</div>
+        </div>
+    </div>
+
+    <a id="downloadBtn" href="#" download="ConvertedData.xlsx">
+        <button>Download Excel File</button>
+    </a>
+</div>
+
+<script>
+    document.getElementById('convertBtn').addEventListener('click', async function () {
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const downloadBtn = document.getElementById('downloadBtn');
+        
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
+        downloadBtn.style.display = 'none';
+
+        const fileInput = document.getElementById('jsonFile');
+        const urlInput = document.getElementById('jsonUrl').value;
+
+        let jsonData = '';
+
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                jsonData = event.target.result;
+                processJson(jsonData);
+            };
+            reader.readAsText(file);
+            updateProgress(50, 'Reading file...');
+        } else if (urlInput) {
+            try {
+                const response = await fetch(urlInput);
+                if (!response.ok) {
+                    alert('Failed to fetch JSON from the URL.');
+                    return;
+                }
+                jsonData = await response.text();
+                updateProgress(50, 'Fetching data...');
+                processJson(jsonData);
+            } catch (error) {
+                alert('Error fetching JSON: ' + error.message);
+                return;
+            }
+        } else {
+            alert('Please upload a file or enter a URL.');
+            return;
+        }
+
+        function processJson(jsonData) {
+            const worker = new Worker('worker.js');
+            worker.postMessage({ jsonData });
+
+            worker.onmessage = function(e) {
+                if (e.data.progress) {
+                    updateProgress(e.data.progress, e.data.message);
+                } else if (e.data.blob) {
+                    const excelUrl = URL.createObjectURL(e.data.blob);
+                    downloadBtn.href = excelUrl;
+                    downloadBtn.style.display = 'block';
+                    updateProgress(100, 'Conversion Complete');
+                }
+            };
+
+            worker.onerror = function(error) {
+                alert('Error processing JSON: ' + error.message);
+            };
+        }
+
+        function updateProgress(percentage, text) {
+            progressBar.style.width = percentage + '%';
+            progressText.textContent = text;
+        }
+    });
+</script>
+<script> self.onmessage = function(e) {
+    const { jsonData } = e.data;
+    self.postMessage({ progress: 10, message: 'Starting conversion...' });
+
+    try {
+        const jsonObject = JSON.parse(jsonData);
+        const worksheet = XLSX.utils.json_to_sheet(jsonObject);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+        // Generate Excel file and send it back to the main thread
+        const excelBlob = XLSX.write(workbook, { bookType: 'xlsx', type: 'blob' });
+        self.postMessage({ blob: excelBlob });
+    } catch (error) {
+        self.postMessage({ progress: 0, message: 'Error processing JSON: ' + error.message });
+    }
+};
+ </script>
+
+</body>
+</html>
