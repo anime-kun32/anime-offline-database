@@ -100,6 +100,7 @@
     </div>
 
     <button id="convertBtn">Convert to Excel</button>
+    <button id="notifyBtn">Enable Notifications</button>
 
     <div class="progress-container">
         <div class="progress-bar">
@@ -114,11 +115,24 @@
 </div>
 
 <script>
+    document.getElementById('notifyBtn').addEventListener('click', async function () {
+        if ('Notification' in window) {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                alert('Notifications enabled!');
+            } else {
+                alert('Notifications are not enabled.');
+            }
+        } else {
+            alert('Notifications are not supported in this browser.');
+        }
+    });
+
     document.getElementById('convertBtn').addEventListener('click', async function () {
         const progressBar = document.getElementById('progressBar');
         const progressText = document.getElementById('progressText');
         const downloadBtn = document.getElementById('downloadBtn');
-        
+
         progressBar.style.width = '0%';
         progressText.textContent = '0%';
         downloadBtn.style.display = 'none';
@@ -172,6 +186,7 @@
                     self.postMessage({ progress: 10, message: 'Starting conversion...' });
 
                     try {
+                        // Simulate chunked processing
                         const jsonObject = JSON.parse(jsonData);
                         const worksheet = XLSX.utils.json_to_sheet(jsonObject);
                         const workbook = XLSX.utils.book_new();
@@ -194,11 +209,25 @@
             worker.onmessage = function(e) {
                 if (e.data.progress) {
                     updateProgress(e.data.progress, e.data.message);
+                    if (Notification.permission === 'granted') {
+                        new Notification('Conversion Progress', {
+                            body: e.data.message + ' - ' + e.data.progress + '%',
+                            icon: 'https://via.placeholder.com/48'
+                        });
+                    }
                 } else if (e.data.blob) {
                     const excelUrl = URL.createObjectURL(e.data.blob);
                     downloadBtn.href = excelUrl;
                     downloadBtn.style.display = 'block';
                     updateProgress(100, 'Conversion Complete');
+                    if (Notification.permission === 'granted') {
+                        new Notification('Conversion Complete', {
+                            body: 'Click to download your file.',
+                            icon: 'https://via.placeholder.com/48'
+                        }).onclick = function() {
+                            window.location.href = excelUrl;
+                        };
+                    }
                 }
             };
 
