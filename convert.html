@@ -153,7 +153,7 @@
                 alert('Error reading file.');
             };
             reader.readAsText(file);
-            updateProgress(50, 'Reading file...');
+            updateProgress(10, 'Reading file...');
         } else if (urlInput) {
             try {
                 const response = await fetch(urlInput);
@@ -162,7 +162,7 @@
                     return;
                 }
                 jsonData = await response.text();
-                updateProgress(50, 'Fetching data...');
+                updateProgress(10, 'Fetching data...');
                 processJson(jsonData);
             } catch (error) {
                 alert('Error fetching JSON: ' + error.message);
@@ -183,21 +183,47 @@
             const workerScript = `
                 self.onmessage = function(e) {
                     const { jsonData } = e.data;
-                    self.postMessage({ progress: 10, message: 'Starting conversion...' });
+                    const worker = new Worker(URL.createObjectURL(new Blob([\`
+                        onmessage = function(e) {
+                            const { jsonData } = e.data;
+                            let progress = 10;
+                            self.postMessage({ progress, message: 'Starting conversion...' });
+                            
+                            try {
+                                const jsonObject = JSON.parse(jsonData);
+                                const worksheet = XLSX.utils.json_to_sheet(jsonObject);
+                                const workbook = XLSX.utils.book_new();
+                                XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+                                
+                                // Simulate progress updates
+                                setTimeout(() => {
+                                    progress = 50;
+                                    self.postMessage({ progress, message: 'Processing data...' });
+                                }, 2000);
 
-                    try {
-                        // Simulate chunked processing
-                        const jsonObject = JSON.parse(jsonData);
-                        const worksheet = XLSX.utils.json_to_sheet(jsonObject);
-                        const workbook = XLSX.utils.book_new();
-                        XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+                                setTimeout(() => {
+                                    const excelBlob = XLSX.write(workbook, { bookType: 'xlsx', type: 'blob' });
+                                    self.postMessage({ progress: 100, message: 'Conversion complete.', blob: excelBlob });
+                                }, 4000);
+                            } catch (error) {
+                                self.postMessage({ progress: 0, message: 'Error processing JSON: ' + error.message });
+                            }
+                        }
+                    \`], { type: 'application/javascript' })));
+                    
+                    worker.postMessage({ jsonData });
 
-                        // Generate Excel file and send it back to the main thread
-                        const excelBlob = XLSX.write(workbook, { bookType: 'xlsx', type: 'blob' });
-                        self.postMessage({ blob: excelBlob });
-                    } catch (error) {
-                        self.postMessage({ progress: 0, message: 'Error processing JSON: ' + error.message });
-                    }
+                    worker.onmessage = function(e) {
+                        if (e.data.progress) {
+                            self.postMessage(e.data);
+                        } else if (e.data.blob) {
+                            self.postMessage(e.data);
+                        }
+                    };
+                    
+                    worker.onerror = function(error) {
+                        self.postMessage({ progress: 0, message: 'Error in Web Worker: ' + error.message });
+                    };
                 };
             `;
 
