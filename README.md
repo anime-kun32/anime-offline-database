@@ -6,20 +6,20 @@ The purpose of this repository is to create a dataset containing anime meta data
 **The goal is to deliver at least weekly updates.**
 
 ## Statistics
-Update **week 33 [2024]**
+Update **week 38 [2024]**
 
-The dataset consists of **34469** entries _(98% reviewed)_ composed of:
+The dataset consists of **34621** entries _(98% reviewed)_ composed of:
 
 | Number of entries | Meta data provider |
 |-------------------|--------------------|
-| 27507 | [myanimelist.net](https://myanimelist.net) |
-| 24070 | [anime-planet.com](https://anime-planet.com) |
-| 20576 | [kitsu.app](https://kitsu.app) |
-| 18865 | [anisearch.com](https://anisearch.com) |
-| 18779 | [anilist.co](https://anilist.co) |
-| 16385 | [notify.moe](https://notify.moe) |
-| 13465 | [anidb.net](https://anidb.net) |
-| 11390 | [livechart.me](https://livechart.me) |
+| 27729 | [myanimelist.net](https://myanimelist.net) |
+| 24124 | [anime-planet.com](https://anime-planet.com) |
+| 20681 | [kitsu.app](https://kitsu.app) |
+| 18945 | [anisearch.com](https://anisearch.com) |
+| 18870 | [anilist.co](https://anilist.co) |
+| 16511 | [notify.moe](https://notify.moe) |
+| 13511 | [anidb.net](https://anidb.net) |
+| 11433 | [livechart.me](https://livechart.me) |
 
 Missed updates:
 + **2024:** 0 _(so far)_
@@ -78,6 +78,7 @@ Here is description of the types in the JSON files.
 | animeSeason  | [AnimeSeason](#animeseason)                       | no       | Data on when the anime was first distributed.                                     |
 | picture      | `URL`                                             | no       | URL of a picture which represents the anime.                                      |
 | thumbnail    | `URL`                                             | no       | URL of a smaller version of the picture.                                          |
+| duration     | [Duration](#duration)                             | yes      | Duration. Normally this is per episode.                                           |
 | synonyms     | `String[]`                                        | no       | Alternative titles and spellings under which the anime is also known.             |
 | relatedAnime | `URL[]`                                           | no       | URLs to the meta data providers for anime that are somehow related to this anime. |
 | tags         | `String[]`                                        | no       | A non-curated list of tags and genres which describe the anime.                   |
@@ -88,6 +89,13 @@ Here is description of the types in the JSON files.
 |--------|-----------------------------------------------------|----------|-------------|
 | season | `Enum of [SPRING, SUMMER, FALL, WINTER, UNDEFINED]` | no       | Season.     |
 | year   | `Integer`                                           | yes      | Year.       |
+
+### Duration
+
+| Field  | Type      | Nullable | Description                                           |
+|--------|-----------|----------|-------------------------------------------------------|
+| value  | `Integer` | no       | Duration in seconds.                                  |
+| unit   | `String`  | no       | For (de)serialization this value is always `SECONDS`. |
 
 ### DeadEntries root
 
@@ -134,6 +142,10 @@ Here are some examples showing what the files look like.
             },
             "picture": "https://cdn.myanimelist.net/images/anime/9/9453.jpg",
             "thumbnail": "https://cdn.myanimelist.net/images/anime/9/9453t.jpg",
+            "duration": {
+                "value": 1380,
+                "unit": "SECONDS"
+            },
             "synonyms": [
                 "Bilježnica smrti",
                 "Caderno da Morte",
